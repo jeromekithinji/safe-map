@@ -4,6 +4,7 @@ import {
   useJsApiLoader,
   Marker,
   DirectionsRenderer,
+  InfoWindow,
 } from "@react-google-maps/api";
 import { toLatLon } from "utm";
 import "./MapComponent.scss";
@@ -15,6 +16,7 @@ const MapComponent = () => {
   const [directionsResponse, setDirectionsResponse] = useState(null);
   const [startLocation, setStartLocation] = useState(""); // New for Start
   const [useCurrentLocation, setUseCurrentLocation] = useState(false); // Checkbox toggle
+  const [selectedCrime, setSelectedCrime] = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
@@ -98,6 +100,7 @@ const MapComponent = () => {
             type: crime.TYPE,
             neighbourhood: crime.NEIGHBOURHOOD,
             date: `${crime.YEAR}-${crime.MONTH}-${crime.DAY}`, // ✅ backticks here
+            time: `${crime.HOUR}:${crime.MINUTE}`,
           };
         });
 
@@ -119,10 +122,9 @@ const MapComponent = () => {
 
   const getMarkerColor = (type) => {
     if (type === "Mischief") return "orange";
-    if (type === "Other Theft") return "green";
+    if (type === "Other Theft") return "blue";
     if (type === "Offence Against a Person") return "yellow";
     if (type === "Homicide") return "purple";
-    return "pink";
   };
 
   return (
@@ -203,15 +205,111 @@ const MapComponent = () => {
                 crime.type
               )}-dot.png`,
             }}
-            title={`${crime.type} at ${crime.neighbourhood}`}
+            onClick={() => setSelectedCrime(crime)} // 👈 when marker clicked, store crime
           />
         ))}
+        {selectedCrime && (
+          <InfoWindow
+            position={{ lat: selectedCrime.lat, lng: selectedCrime.lng }}
+            onCloseClick={() => setSelectedCrime(null)}
+          >
+            <div className="map-infowindow">
+              <h4 className="map-infowindow__crime">{selectedCrime.type}</h4>
+              <p className="map-infowindow__info">
+                <strong>Neighbourhood:</strong> {selectedCrime.neighbourhood}
+              </p>
+              <p className="map-infowindow__info">
+                <strong>Date:</strong> {selectedCrime.date}
+              </p>
+              <p className="map-infowindow__info">
+                <strong>Time:</strong> {selectedCrime.time}
+              </p>
+            </div>
+          </InfoWindow>
+        )}
 
         {/* Directions */}
         {directionsResponse && (
           <DirectionsRenderer directions={directionsResponse} />
         )}
       </GoogleMap>
+      <div className="map-dictionary">
+        <h4 className="map-dictionary__title">Map Dictionary</h4>
+        <ul className="map-dictionary__list">
+          <li>
+            <strong>Homicide:</strong> A person causes the death of another
+            person, directly or indirectly.
+          </li>
+          <li>
+            <strong>Mischief:</strong> Willful destruction, damage, or
+            defacement of property. Includes public mischief.
+          </li>
+          <li>
+            <strong>Offence Against a Person:</strong> An attack causing harm,
+            possibly involving a weapon.
+          </li>
+          <li>
+            <strong>Other Theft:</strong> Theft of personal items like purses,
+            wallets, bikes, electronics, etc.
+          </li>
+        </ul>
+        <h5 className="map-dictionary__subtitle">Crime Hotspots</h5>
+        <ul className="map-dictionary__list">
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "#00FF00" }}
+            ></span>{" "}
+            Less than 200 crimes (Safe)
+          </li>
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "#FFFF00" }}
+            ></span>{" "}
+            Between 200 and 600 crimes (Moderate)
+          </li>
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "#FF0000" }}
+            ></span>{" "}
+            More than 600 crimes (High Risk)
+          </li>
+        </ul>
+
+        <h5 className="map-dictionary__subtitle">Crime Types</h5>
+        <ul className="map-dictionary__list">
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "orange" }}
+            ></span>{" "}
+            Mischief: Malicious damage or public mischief
+          </li>
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "blue" }}
+            ></span>{" "}
+            Other Theft: Theft of personal items, bicycles, etc.
+          </li>
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "yellow" }}
+            ></span>{" "}
+            Offence Against a Person: Attack causing harm
+          </li>
+          <li>
+            <span
+              className="color-dot"
+              style={{ backgroundColor: "purple" }}
+            ></span>{" "}
+            Homicide: Causes death of another person
+          </li>
+        </ul>
+      </div>
     </div>
   );
 };

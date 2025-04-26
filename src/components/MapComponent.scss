@@ -14,14 +14,19 @@ $primary-hover: #0056b3;
 
  &-wrapper {
   position: relative;
-  width: 100%;
-  height: 80vh; // Full screen height
-  overflow: hidden;
-  min-width: 80vw;
+    width: 100%;
+    min-width: 80vw;
+    max-width: 1200px;  // ⬅️ Add this so both map + dictionary stay the same size
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
  }
 
   &-container {
     width: 100%;
+    min-width: 100%;
+    // min-width: 80vw;
     height: 100vh; // Make the map take the full screen
   }
 
@@ -89,4 +94,79 @@ $primary-hover: #0056b3;
         background-color: $primary-hover;
       }
     }
+
+    &-infowindow {
+      color: black;
+      text-align: left;
+      font-family: 'Arial', sans-serif;
+      font-size: 14px;
+      line-height: 1.5; // Controls spacing between lines
+      padding: 5px;
+    
+      &__crime {
+        margin-bottom: 8px; // Space under title
+        font-size: 16px;
+        font-weight: bold;
+      }
+    
+      &__info {
+        margin: 4px 0; // Top and bottom margin for each <p>
+      }
+    
+      strong {
+        font-weight: 600;
+      }
+    }
+
+    &-dictionary {
+      width: 100%;        // ⬅️ Always full width of wrapper
+    max-width: 1200px;  // ⬅️ Same max width as map
+    margin: 20px auto 0; // ⬅️ Top margin 20px, center horizontally
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    font-family: 'Arial', sans-serif;
+    color: black;
+    text-align: left;
+
+      &__title {
+        font-size: 20px;
+        margin-bottom: 15px;
+        text-align: left;
+      }
+
+      &__subtitle {
+        font-size: 16px;
+        margin-top: 20px;
+        margin-bottom: 10px;
+        color: #333;
+      }
+
+      &__list {
+        list-style-type: none;
+        padding-left: 0;
+
+        li {
+          display: flex;
+          align-items: center;
+          margin-bottom: 8px;
+          font-size: 14px;
+          line-height: 1.4;
+
+          .color-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 10px;
+            display: inline-block;
+            border: 1px solid #ccc;
+          }
+
+          strong {
+            font-weight: bold;
+          }
+        }
+      }
+    }   
 }
