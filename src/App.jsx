@@ -6,6 +6,15 @@ import './App.css'
 function App() {
   const [count, setCount] = useState(0)
 
+  const fetchCrimes = async () => {
+    const response = await fetch('http://localhost:5000/api/crimes')
+    const data = await response.json()
+    console.log(data)
+  }
+
+  fetchCrimes();
+  
+
   return (
     <>
       <div>
