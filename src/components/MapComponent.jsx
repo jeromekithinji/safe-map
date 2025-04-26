@@ -183,6 +183,15 @@ const MapComponent = () => {
         mapContainerClassName="map-container"
         center={center}
         zoom={13}
+        options={{
+          draggable: true,
+          zoomControl: true,
+          scrollwheel: true,
+          disableDoubleClickZoom: false,
+          streetViewControl: true,
+          fullscreenControl: false,
+          mapTypeControl: true,
+        }}
       >
         {/* Crime Markers */}
         {points.map((crime, idx) => (
