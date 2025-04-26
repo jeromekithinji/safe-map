@@ -57,8 +57,10 @@ const MapComponent = () => {
 
   const getMarkerColor = (type) => {
     if (type === "Mischief") return "orange";
-    if (type === "Theft") return "green";
-    return "blue";
+    if (type === "Other Theft") return "green";
+    if (type === "Offence Against a Person") return "yellow";
+    if (type === "Homicide") return "purple";
+    return "pink";
   };
 
   return (

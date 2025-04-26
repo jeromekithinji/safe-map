@@ -2,7 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import axios from 'axios'
-import crimes from '../src/assets/data/filteredNew.json' assert { type: "json" }
+import crimes from '../src/assets/data/filtered2010-2025.json' assert { type: "json" }
 
 dotenv.config()
 
