@@ -2,7 +2,8 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
-import MapComponent from './components/MapComponent'
+import MapComponent from './components/MapComponent/MapComponent'
+import NavBar from './components/NavBar/NavBar'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -18,7 +19,7 @@ function App() {
 
   return (
     <>
-      <h1>My React Google Map</h1>
+      <NavBar />
       <MapComponent />
     </>
   )
