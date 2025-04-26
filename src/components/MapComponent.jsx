@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from "@react-google-maps/api";
-import { toLatLon } from 'utm';  // Correct import
+import { toLatLon } from 'utm';
+import './MapComponent.css';
+
 
 const MapComponent = () => {
   const [points, setPoints] = useState([]);
@@ -72,11 +74,6 @@ const MapComponent = () => {
 
   if (!isLoaded) return <div>Loading Map...</div>;
 
-  const containerStyle = {
-    width: "100%",
-    height: "400px",
-  };
-
   const center = {
     lat: 49.2827,
     lng: -123.1207,
@@ -91,54 +88,46 @@ const MapComponent = () => {
   };
 
   return (
-    <div style={{ position: "relative" }}>
-      {/* Input box over the map */}
-      <div style={{
-        position: "absolute",
-        top: 20,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 10,
-        backgroundColor: "white",
-        padding: "10px 20px",
-        borderRadius: "8px",
-        boxShadow: "0 2px 6px rgba(0,0,0,0.3)"
-      }}>
+    <div className="map-wrapper">
+      {/* Input box */}
+      <div className="map-controls">
         <input
           type="text"
           value={destination}
           onChange={handleDestinationChange}
           placeholder="Enter destination..."
-          style={{ padding: "8px", width: "300px", marginRight: "10px" }}
+          className="map-input"
         />
-        <button onClick={handleGetDirections} style={{ padding: "8px 15px" }}>
+        <button onClick={handleGetDirections} className="map-button">
           Get Directions
         </button>
       </div>
-
-      {/* Map itself */}
-      <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
-        {/* Markers for crimes */}
+  
+      {/* Map */}
+      <GoogleMap
+        mapContainerClassName="map-container"
+        center={center}
+        zoom={13}
+      >
+        {/* Crime Markers */}
         {points.map((crime, idx) => (
           <Marker
-          key={idx}
-          position={{ lat: crime.lat, lng: crime.lng }}
-          icon={{
-            url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
-              crime.type
-            )}-dot.png`,  // ✅ backticks here
-          }}
-          title={`${crime.type} at ${crime.neighbourhood}`}  // ✅ backticks here
-        />
+            key={idx}
+            position={{ lat: crime.lat, lng: crime.lng }}
+            icon={{
+              url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(crime.type)}-dot.png`,
+            }}
+            title={`${crime.type} at ${crime.neighbourhood}`}
+          />
         ))}
-
-        {/* Render the route if directions are found */}
+  
+        {/* Directions */}
         {directionsResponse && (
           <DirectionsRenderer directions={directionsResponse} />
         )}
       </GoogleMap>
     </div>
-  );
+  );  
 };
 
 export default MapComponent;
