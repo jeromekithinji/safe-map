@@ -1,14 +1,41 @@
 import React, { useEffect, useState } from "react";
-import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
+import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from "@react-google-maps/api";
 import { toLatLon } from 'utm';  // Correct import
 
 const MapComponent = () => {
   const [points, setPoints] = useState([]);
+  const [destination, setDestination] = useState("");  // ⬅️ Destination typed by user
+  const [directionsResponse, setDirectionsResponse] = useState(null);
   
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
-    libraries: ["visualization"],
+    libraries: ["visualization", "places"],
   });
+
+  const handleDestinationChange = (e) => {
+    setDestination(e.target.value);
+  };
+
+  const handleGetDirections = async () => {
+    if (!destination) return;
+
+    const directionsService = new window.google.maps.DirectionsService();
+
+    directionsService.route(
+      {
+        origin: center, // You can make this dynamic based on user location
+        destination: destination,
+        travelMode: window.google.maps.TravelMode.DRIVING, // or WALKING, BICYCLING, TRANSIT
+      },
+      (result, status) => {
+        if (status === window.google.maps.DirectionsStatus.OK) {
+          setDirectionsResponse(result);
+        } else {
+          console.error(`error fetching directions ${result}`);
+        }
+      }
+    );
+  };
 
   useEffect(() => {
     const fetchCrimes = async () => {
@@ -64,20 +91,51 @@ const MapComponent = () => {
   };
 
   return (
-    <div>
+    <div style={{ position: "relative" }}>
+      {/* Input box over the map */}
+      <div style={{
+        position: "absolute",
+        top: 20,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 10,
+        backgroundColor: "white",
+        padding: "10px 20px",
+        borderRadius: "8px",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.3)"
+      }}>
+        <input
+          type="text"
+          value={destination}
+          onChange={handleDestinationChange}
+          placeholder="Enter destination..."
+          style={{ padding: "8px", width: "300px", marginRight: "10px" }}
+        />
+        <button onClick={handleGetDirections} style={{ padding: "8px 15px" }}>
+          Get Directions
+        </button>
+      </div>
+
+      {/* Map itself */}
       <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={13}>
+        {/* Markers for crimes */}
         {points.map((crime, idx) => (
           <Marker
-            key={idx}
-            position={{ lat: crime.lat, lng: crime.lng }}
-            icon={{
-              url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
-                crime.type
-              )}-dot.png`,  // ✅ backticks here
-            }}
-            title={`${crime.type} at ${crime.neighbourhood}`}  // ✅ backticks here
-          />
+          key={idx}
+          position={{ lat: crime.lat, lng: crime.lng }}
+          icon={{
+            url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
+              crime.type
+            )}-dot.png`,  // ✅ backticks here
+          }}
+          title={`${crime.type} at ${crime.neighbourhood}`}  // ✅ backticks here
+        />
         ))}
+
+        {/* Render the route if directions are found */}
+        {directionsResponse && (
+          <DirectionsRenderer directions={directionsResponse} />
+        )}
       </GoogleMap>
     </div>
   );
