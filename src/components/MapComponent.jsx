@@ -53,7 +53,7 @@ const MapComponent = () => {
   const center = {
     lat: 49.2827,
     lng: -123.1207,
-  };  
+  };
 
   const getMarkerColor = (type) => {
     if (type === "Mischief") return "orange";
