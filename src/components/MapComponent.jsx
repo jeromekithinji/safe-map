@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Chatbot from "./ChatBot";
+import Chatbot from "./Chatbot/Chatbot";
 import {
   GoogleMap,
   useJsApiLoader,
