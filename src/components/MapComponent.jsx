@@ -217,6 +217,9 @@ export default function MapComponent() {
           className="map-input"
         />
         {/* Toggle pins vs circles */}
+        <button onClick={handleGetDirections} className="map-button">
+              Get Directions
+            </button>
         <label className="map-toggle">
           <input
             type="checkbox"
