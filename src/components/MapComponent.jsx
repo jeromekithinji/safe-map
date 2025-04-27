@@ -27,40 +27,9 @@ function haversine(c1, c2) {
         Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
-function summarizeCrime(lat, lng, radiusKm = 1) {
-  // Filter crimes within radius
-  const crimesInRadius = crimes.filter((c) => {
-    if (!c.latitude || !c.longitude) return false;
-    const dist = haversine(lat, lng, c.latitude, c.longitude);
-    return dist <= radiusKm;
-  });
-
-  const total = crimesInRadius.length;
-  if (total === 0) {
-    return `In the past year within ${radiusKm} km of (${lat.toFixed(4)},${lng.toFixed(4)}), no crimes were reported.`;
-  }
-
-  // Count types
-  const typeCounts = {};
-  crimesInRadius.forEach((c) => {
-    typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
-  });
-
-  // Sort types by count
-  const sortedTypes = Object.entries(typeCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
-
-  // Build summary string
-  const typeSummary = sortedTypes
-    .map(([type, count]) => `${type} (${Math.round((count / total) * 100)}%)`)
-    .join(" and ");
-
-  return `In the past year within ${radiusKm} km of (${lat.toFixed(4)},${lng.toFixed(4)}), there have been ${total} crimes, most commonly ${typeSummary}.`;
-}
 
 export default function MapComponent() {
-
+  const center = { lat: 49.2827, lng: -123.1207 };
   const [points, setPoints] = useState([]);
 
   const [neighborhoods, setNeighborhoods] = useState([]);
@@ -68,7 +37,7 @@ export default function MapComponent() {
   const [filteredPoints, setFilteredPoints] = useState([]);
   const [filteredNeighborhoods, setFilteredNeighborhoods] = useState([]);
 
-
+  const [mapCenter, setMapCenter] = useState(center);
   const [destination, setDestination] = useState("");
   const [startLocation, setStartLocation] = useState("");
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
@@ -83,8 +52,6 @@ export default function MapComponent() {
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries: ["visualization", "places"],
   });
-
-  const center = { lat: 49.2827, lng: -123.1207 };
 
   useEffect(() => {
     (async () => {
@@ -234,8 +201,15 @@ export default function MapComponent() {
     );
   };
 
-  const handleGetDirections = () => {
+  const handleGetDirections = async () => {
     if (!destination) return;
+    const geocodeRes = await fetch(
+      `http://localhost:5000/api/geocode?address=${encodeURIComponent(destination)}`
+    );
+    const geoData = await geocodeRes.json();
+    if (geoData && geoData.lat && geoData.lng) {
+      setMapCenter({ lat: geoData.lat, lng: geoData.lng });
+    }
     let origin = startLocation;
     if (useCurrentLocation && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -267,13 +241,11 @@ export default function MapComponent() {
 
   if (!isLoaded) return <div>Loading Map...</div>;
 
-  // Decide which list to render
   const showList = showCircles ? filteredNeighborhoods : filteredPoints;
 
   return (
     <div className="map-wrapper">
       <div className="map-controls">
-        {/* Start input */}
         <div className="map-controls__starting">
           <input
             type="text"
@@ -292,7 +264,6 @@ export default function MapComponent() {
           </p>
         </div>
 
-        {/* Destination */}
         <input
           type="text"
           value={destination}
@@ -303,7 +274,6 @@ export default function MapComponent() {
         <button onClick={handleGetDirections} className="map-button">
           Get Directions
         </button>
-        {/* Toggle pins vs circles */}
         <label className="map-toggle">
           <input
             type="checkbox"
@@ -315,51 +285,48 @@ export default function MapComponent() {
       </div>
 
       <GoogleMap
-        key={showCircles ? "circles" : "pins"} // <-- This forces a remount on toggle!
-        mapContainerClassName="map-container"
-        center={center}
-        zoom={13}
-        options={{
-          draggable: true,
-          zoomControl: true,
-          scrollwheel: true,
-          streetViewControl: true,
-          fullscreenControl: false,
-          mapTypeControl: true,
-        }}
-      >
+  key={showCircles ? "circles" : "pins"}
+  mapContainerClassName="map-container"
+  center={mapCenter}
+  zoom={13}
+  options={{
+    draggable: true,
+    zoomControl: true,
+    scrollwheel: true,
+    streetViewControl: true,
+    fullscreenControl: false,
+    mapTypeControl: true,
+  }}
+>
         {showCircles
-          ? showList.map((n) => (
-              <Circle
-                key={n.name} // Use a unique, stable key!
-                center={n.center}
-                radius={RADIUS}
-                options={{
-                  fillColor:
-                    n.crimeCount < 200
-                      ? "#00FF00"
-                      : n.crimeCount < 600
-                      ? "#FFFF00"
-                      : "#FF0000",
-                  fillOpacity: 0.35,
-                  strokeOpacity: 0.8,
-                  strokeWeight: 2,
-                }}
-                onClick={() => setSelectedNeighborhood(n)}
-              />
-            ))
-          : showList.map((crime, idx) => (
-              <Marker
-                key={idx}
-                position={{ lat: crime.lat, lng: crime.lng }}
-                icon={{
-                  url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
-                    crime.type
-                  )}-dot.png`,
-                }}
-                onClick={() => setSelectedCrime(crime)}
-              />
-            ))}
+  ? showList.map((n) => (
+      <Circle
+        key={n.name}
+        center={n.center}
+        radius={RADIUS}
+        options={{
+          fillColor:
+            n.crimeCount < 200 ? "#00FF00" :
+            n.crimeCount < 600 ? "#FFFF00" : "#FF0000",
+          fillOpacity: 0.35,
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+        }}
+        onClick={() => setSelectedNeighborhood(n)}
+      />
+    ))
+  : showList.map((crime, idx) => (
+      <Marker
+        key={idx}
+        position={{ lat: crime.lat, lng: crime.lng }}
+        icon={{
+          url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
+            crime.type
+          )}-dot.png`,
+        }}
+        onClick={() => setSelectedCrime(crime)}
+      />
+    ))}
 
         {selectedCrime && !showCircles && (
           <InfoWindow
@@ -410,7 +377,10 @@ export default function MapComponent() {
           <DirectionsRenderer directions={directionsResponse} />
         )}
       </GoogleMap>
-      <Chatbot mapCenter={center} />
+      <Chatbot
+  mapCenter={selectedNeighborhood ? selectedNeighborhood.center : mapCenter}
+  crimeCount={selectedNeighborhood ? selectedNeighborhood.crimeCount : null}
+/>
     </div>
   );
 }
