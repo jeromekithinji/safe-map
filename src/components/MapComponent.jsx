@@ -103,15 +103,81 @@ export default function MapComponent() {
     })();
   }, []);
 
+  function findSafestRoute(routes, neighborhoods) {
+    console.log("🔵 Checking safest route...");
+  
+    for (let i = 0; i < routes.length; i++) {
+      const route = routes[i];
+      const path = route.overview_path;
+  
+      const passesHighRisk = neighborhoods.some((hotspot) => {
+        return (
+          hotspot.crimeCount > 600 &&
+          path.some(
+            (pt) =>
+              haversine({ lat: pt.lat(), lng: pt.lng() }, hotspot.center) <=
+              RADIUS / 1000 // meters -> km
+          )
+        );
+      });
+  
+      if (!passesHighRisk) {
+        console.log(`✅ Route ${i + 1} is safe: ${route.summary || "Unnamed Route"}`);
+        return route;
+      } else {
+        console.log(`⚠️ Route ${i + 1} passes through a high-risk hotspot.`);
+      }
+    }
+  
+    console.log("❌ No completely safe route found. Defaulting to the first route.");
+    window.alert("⚠️ Warning: No completely safe route available. Proceed carefully!");
+    return routes[0]; // fallback
+  }
+  
   // Helper to request directions & filter both lists
   const requestDirections = (origin, dest) => {
     const svc = new window.google.maps.DirectionsService();
     svc.route(
-      { origin, destination: dest, travelMode: "DRIVING" },
+      { 
+        origin, 
+        destination: dest, 
+        travelMode: "WALKING",
+        provideRouteAlternatives: true,
+      },
       (res, status) => {
         if (status === "OK") {
           setDirectionsResponse(res);
-          const path = res.routes[0].overview_path;
+          // const path = res.routes[0].overview_path;
+
+          const routes = res.routes; // all possible routes
+          console.log("🔵 Alternative Routes:", routes);
+
+          const scoredRoutes = routes.map(route => {
+            const path = route.overview_path;
+            const hotspotCount = neighborhoods.filter(hotspot =>
+              hotspot.crimeCount > 600 &&
+              path.some(pt => haversine({ lat: pt.lat(), lng: pt.lng() }, hotspot.center) <= (RADIUS/1000))
+            ).length;
+            
+            return {
+              route,
+              hotspotCount,
+              distanceMeters: route.legs[0].distance.value,
+            };
+          });
+          
+          // Prefer safer (less hotspot), but allow longer distance
+          const bestRoute = scoredRoutes.sort((a, b) => {
+            if (a.hotspotCount !== b.hotspotCount) {
+              return a.hotspotCount - b.hotspotCount; // safer first
+            }
+            return a.distanceMeters - b.distanceMeters; // then shorter
+          })[0].route;
+
+          const safestRoute = findSafestRoute(routes, neighborhoods);
+
+          // setDirectionsResponse({ routes: [safestRoute] }); // 👈 use ONLY the safest one
+          const path = bestRoute.overview_path;
 
           // filter raw points
           const fp = points.filter((p) =>
