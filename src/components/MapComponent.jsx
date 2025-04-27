@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Chatbot from "./ChatBot";
 import {
   GoogleMap,
   useJsApiLoader,
@@ -10,8 +11,8 @@ import {
 import { toLatLon } from "utm";
 import "./MapComponent.scss";
 
-const RADIUS = 700;           // meters for neighborhood circles
-const MAX_DIST_KM = 1.0;      // threshold distance from route
+const RADIUS = 700;          
+const MAX_DIST_KM = 1.0;    
 
 // Haversine formula in km
 function haversine(c1, c2) {
@@ -26,24 +27,53 @@ function haversine(c1, c2) {
         Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+function summarizeCrime(lat, lng, radiusKm = 1) {
+  // Filter crimes within radius
+  const crimesInRadius = crimes.filter((c) => {
+    if (!c.latitude || !c.longitude) return false;
+    const dist = haversine(lat, lng, c.latitude, c.longitude);
+    return dist <= radiusKm;
+  });
+
+  const total = crimesInRadius.length;
+  if (total === 0) {
+    return `In the past year within ${radiusKm} km of (${lat.toFixed(4)},${lng.toFixed(4)}), no crimes were reported.`;
+  }
+
+  // Count types
+  const typeCounts = {};
+  crimesInRadius.forEach((c) => {
+    typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
+  });
+
+  // Sort types by count
+  const sortedTypes = Object.entries(typeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  // Build summary string
+  const typeSummary = sortedTypes
+    .map(([type, count]) => `${type} (${Math.round((count / total) * 100)}%)`)
+    .join(" and ");
+
+  return `In the past year within ${radiusKm} km of (${lat.toFixed(4)},${lng.toFixed(4)}), there have been ${total} crimes, most commonly ${typeSummary}.`;
+}
 
 export default function MapComponent() {
-  // raw crime points
+
   const [points, setPoints] = useState([]);
-  // aggregated neighborhoods
+
   const [neighborhoods, setNeighborhoods] = useState([]);
 
-  // filtered subsets along the route
   const [filteredPoints, setFilteredPoints] = useState([]);
   const [filteredNeighborhoods, setFilteredNeighborhoods] = useState([]);
 
-  // UI & directions
+
   const [destination, setDestination] = useState("");
   const [startLocation, setStartLocation] = useState("");
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [directionsResponse, setDirectionsResponse] = useState(null);
 
-  // marker vs circle toggle
   const [showCircles, setShowCircles] = useState(false);
 
   const [selectedCrime, setSelectedCrime] = useState(null);
@@ -56,7 +86,6 @@ export default function MapComponent() {
 
   const center = { lat: 49.2827, lng: -123.1207 };
 
-  // Fetch crimes + build points & neighborhood aggregates
   useEffect(() => {
     (async () => {
       const res = await fetch("http://localhost:5000/api/crimes");
@@ -82,7 +111,6 @@ export default function MapComponent() {
       setPoints(pts);
       setFilteredPoints(pts);
 
-      // Aggregate neighborhoods
       const agg = {};
       pts.forEach((p) => {
         const nb = p.neighbourhood || "Unknown";
@@ -110,19 +138,17 @@ export default function MapComponent() {
   const requestDirections = (origin, dest) => {
     const svc = new window.google.maps.DirectionsService();
     svc.route(
-      { origin, destination: dest, travelMode: "DRIVING" },
+      { origin, destination: dest, travelMode: "WALKING" },
       (res, status) => {
         if (status === "OK") {
           setDirectionsResponse(res);
           const path = res.routes[0].overview_path;
 
-          // filter raw points
           const fp = points.filter((p) =>
             path.some((pt) => haversine({ lat: p.lat, lng: p.lng }, { lat: pt.lat(), lng: pt.lng() }) <= MAX_DIST_KM)
           );
           setFilteredPoints(fp);
 
-          // filter neighborhoods
           const fn = neighborhoods.filter((n) =>
             path.some((pt) => haversine(n.center, { lat: pt.lat(), lng: pt.lng() }) <= MAX_DIST_KM)
           );
@@ -166,14 +192,6 @@ export default function MapComponent() {
   // Decide which list to render
   const showList = showCircles ? filteredNeighborhoods : filteredPoints;
 
-  const handleClear = () => {
-    setDirectionsResponse(null);
-    setDestination("");
-    setStartLocation("");
-    setFilteredPoints(points);
-    setFilteredNeighborhoods(neighborhoods);
-  };
-
   return (
     <div className="map-wrapper">
       <div className="map-controls">
@@ -202,6 +220,9 @@ export default function MapComponent() {
           placeholder="Enter destination..."
           className="map-input"
         />
+        <button onClick={handleGetDirections} className="map-button">
+          Get Directions
+        </button>
         {/* Toggle pins vs circles */}
         <label className="map-toggle">
           <input
@@ -306,6 +327,7 @@ export default function MapComponent() {
           <DirectionsRenderer directions={directionsResponse} />
         )}
       </GoogleMap>
+      <Chatbot mapCenter={center} />
     </div>
   );
 }
