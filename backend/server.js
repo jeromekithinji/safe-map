@@ -95,7 +95,7 @@ app.post('/api/assistant', async (req, res) => {
 
     const SAFE_THRESHOLD = 200;
     const prompt = `
-    You are a Montreal safety assistant.
+    You are a Vancouver safety assistant.
     Context: ${summary}
     Crime count in this area: ${count}
     If crime count is less than ${SAFE_THRESHOLD}, consider the area generally safe. If above but less than 600 advise caution. If above 600, advise extreme caution that this area is not safe.
