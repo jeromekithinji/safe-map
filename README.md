@@ -7,7 +7,7 @@ Built with **React.js**, **Node.js**, **Google Maps API**, and powered by **Goog
 
 ## Inspiration
 
-When navigating unfamiliar areas — whether traveling, commuting, or jogging at night — we realized most maps only focus on getting you somewhere fast, not safely.  
+When navigating unfamiliar areas whether traveling, commuting, or jogging at night, we realized most maps only focus on getting you somewhere fast, not safely.  
 We wanted a tool that actively helps users avoid high-crime zones, offering safer routes rather than just the shortest paths.  
 **SafeMap** was built with a simple goal: help people move smarter, safer, and with more confidence.
 
