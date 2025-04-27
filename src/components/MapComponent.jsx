@@ -3,134 +3,193 @@ import {
   GoogleMap,
   useJsApiLoader,
   Marker,
+  Circle,
   DirectionsRenderer,
   InfoWindow,
 } from "@react-google-maps/api";
 import { toLatLon } from "utm";
 import "./MapComponent.scss";
-import { FaLocationArrow } from "react-icons/fa"; // FontAwesome location arrow
 
-const MapComponent = () => {
+const RADIUS = 700; // meters for neighborhood circles
+const MAX_DIST_KM = 1.0; // threshold distance from route
+
+// Haversine formula in km
+function haversine(c1, c2) {
+  const R = 6371,
+    toRad = (v) => (v * Math.PI) / 180;
+  const dLat = toRad(c2.lat - c1.lat),
+    dLon = toRad(c2.lng - c1.lng),
+    a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(c1.lat)) *
+        Math.cos(toRad(c2.lat)) *
+        Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export default function MapComponent() {
+  // raw crime points
   const [points, setPoints] = useState([]);
-  const [destination, setDestination] = useState(""); // ⬅️ Destination typed by user
+  // aggregated neighborhoods
+  const [neighborhoods, setNeighborhoods] = useState([]);
+
+  // filtered subsets along the route
+  const [filteredPoints, setFilteredPoints] = useState([]);
+  const [filteredNeighborhoods, setFilteredNeighborhoods] = useState([]);
+
+  // UI & directions
+  const [destination, setDestination] = useState("");
+  const [startLocation, setStartLocation] = useState("");
+  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [directionsResponse, setDirectionsResponse] = useState(null);
-  const [startLocation, setStartLocation] = useState(""); // New for Start
-  const [useCurrentLocation, setUseCurrentLocation] = useState(false); // Checkbox toggle
+
+  // marker vs circle toggle
+  const [showCircles, setShowCircles] = useState(false);
+
   const [selectedCrime, setSelectedCrime] = useState(null);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries: ["visualization", "places"],
   });
 
-  const requestDirections = (origin, destination) => {
-    const directionsService = new window.google.maps.DirectionsService();
+  const center = { lat: 49.2827, lng: -123.1207 };
 
-    directionsService.route(
-      {
-        origin: origin,
-        destination: destination,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK) {
-          setDirectionsResponse(result);
+  // Fetch crimes + build points & neighborhood aggregates
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("http://localhost:5000/api/crimes");
+      const data = await res.json();
+
+      // Raw points
+      const pts = data.map((c) => {
+        const { latitude: lat, longitude: lng } = toLatLon(+c.X, +c.Y, 10, "N");
+        return {
+          lat,
+          lng,
+          type: c.TYPE,
+          neighbourhood: c.NEIGHBOURHOOD,
+          date: `${c.YEAR}-${c.MONTH}-${c.DAY}`,
+          time: `${c.HOUR}:${c.MINUTE}`,
+        };
+      });
+      setPoints(pts);
+      setFilteredPoints(pts);
+
+      // Aggregate neighborhoods
+      const agg = {};
+      pts.forEach((p) => {
+        const nb = p.neighbourhood || "Unknown";
+        if (!agg[nb]) agg[nb] = { count: 0, types: {}, points: [] };
+        agg[nb].count++;
+        agg[nb].points.push({ lat: p.lat, lng: p.lng });
+        agg[nb].types[p.type] = (agg[nb].types[p.type] || 0) + 1;
+      });
+
+      const nbs = Object.entries(agg).map(
+        ([name, { count, types, points }]) => ({
+          name,
+          crimeCount: count,
+          crimeTypes: types,
+          center: {
+            lat: points.reduce((s, p) => s + p.lat, 0) / points.length,
+            lng: points.reduce((s, p) => s + p.lng, 0) / points.length,
+          },
+        })
+      );
+      setNeighborhoods(nbs);
+      setFilteredNeighborhoods(nbs);
+    })();
+  }, []);
+
+  // Helper to request directions & filter both lists
+  const requestDirections = (origin, dest) => {
+    const svc = new window.google.maps.DirectionsService();
+    svc.route(
+      { origin, destination: dest, travelMode: "DRIVING" },
+      (res, status) => {
+        if (status === "OK") {
+          setDirectionsResponse(res);
+          const path = res.routes[0].overview_path;
+
+          // filter raw points
+          const fp = points.filter((p) =>
+            path.some(
+              (pt) =>
+                haversine(
+                  { lat: p.lat, lng: p.lng },
+                  { lat: pt.lat(), lng: pt.lng() }
+                ) <= MAX_DIST_KM
+            )
+          );
+          setFilteredPoints(fp);
+
+          // filter neighborhoods
+          const fn = neighborhoods.filter((n) =>
+            path.some(
+              (pt) =>
+                haversine(n.center, { lat: pt.lat(), lng: pt.lng() }) <=
+                MAX_DIST_KM
+            )
+          );
+          setFilteredNeighborhoods(fn);
         } else {
-          console.error(`error fetching directions ${result}`);
+          console.error("Directions error:", status);
           alert("Could not find directions. Please check addresses!");
         }
       }
     );
   };
 
-  const handleDestinationChange = (e) => {
-    setDestination(e.target.value);
-  };
-
-  const handleGetDirections = async () => {
+  const handleGetDirections = () => {
     if (!destination) return;
-
-    let origin = startLocation; // Default: whatever the user typed
-
-    if (useCurrentLocation) {
-      // Get user's real-time geolocation
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            origin = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-            };
-
-            // After getting location, actually request directions
-            requestDirections(origin, destination);
-          },
-          (error) => {
-            console.error("Error getting location:", error);
-            alert("Failed to get your current location.");
-          }
-        );
-      } else {
-        alert("Geolocation is not supported by your browser.");
-      }
+    let origin = startLocation;
+    if (useCurrentLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          requestDirections(loc, destination);
+        },
+        () => alert("Failed to get your current location.")
+      );
     } else {
-      // No need to fetch GPS, use typed address
       requestDirections(origin, destination);
     }
   };
 
-  useEffect(() => {
-    const fetchCrimes = async () => {
-      try {
-        const response = await fetch("http://localhost:5000/api/crimes");
-        const data = await response.json();
-        console.log("Fetched crime data:", data);
-
-        const convertedPoints = data.map((crime) => {
-          const { latitude, longitude } = toLatLon(
-            parseFloat(crime.X),
-            parseFloat(crime.Y),
-            10, // UTM Zone 10
-            "N" // Northern Hemisphere
-          );
-
-          return {
-            lat: latitude,
-            lng: longitude,
-            type: crime.TYPE,
-            neighbourhood: crime.NEIGHBOURHOOD,
-            date: `${crime.YEAR}-${crime.MONTH}-${crime.DAY}`, // ✅ backticks here
-            time: `${crime.HOUR}:${crime.MINUTE}`,
-          };
-        });
-
-        setPoints(convertedPoints);
-      } catch (error) {
-        console.error("Error fetching crime data:", error);
-      }
-    };
-
-    fetchCrimes();
-  }, []);
+  const getMarkerColor = (type) => {
+    switch (type) {
+      case "Mischief":
+        return "orange";
+      case "Other Theft":
+        return "blue";
+      case "Offence Against a Person":
+        return "yellow";
+      case "Homicide":
+        return "purple";
+      default:
+        return "red";
+    }
+  };
 
   if (!isLoaded) return <div>Loading Map...</div>;
 
-  const center = {
-    lat: 49.2827,
-    lng: -123.1207,
-  };
+  // Decide which list to render
+  const showList = showCircles ? filteredNeighborhoods : filteredPoints;
 
-  const getMarkerColor = (type) => {
-    if (type === "Mischief") return "orange";
-    if (type === "Other Theft") return "blue";
-    if (type === "Offence Against a Person") return "yellow";
-    if (type === "Homicide") return "purple";
+  const handleClear = () => {
+    setDirectionsResponse(null);
+    setDestination("");
+    setStartLocation("");
+    setFilteredPoints(points);
+    setFilteredNeighborhoods(neighborhoods);
   };
 
   return (
     <div className="map-wrapper">
-      {/* Input box */}
       <div className="map-controls">
+        {/* Start input */}
         <div className="map-controls__starting">
           <input
             type="text"
@@ -139,49 +198,37 @@ const MapComponent = () => {
             placeholder="Enter starting location..."
             className="map-controls__starting-input"
           />
-
           <p
             className="map-controls__starting-currentLoc"
-            onClick={() => {
-              if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                  (position) => {
-                    const userLocation = {
-                      lat: position.coords.latitude,
-                      lng: position.coords.longitude,
-                    };
-                    setUseCurrentLocation(true);
-                    setStartLocation("Current Location");
-                    console.log("Current location set:", userLocation);
-                  },
-                  (error) => {
-                    console.error("Error fetching location:", error);
-                    alert("Failed to get your current location.");
-                  }
-                );
-              } else {
-                alert("Geolocation is not supported by your browser.");
-              }
-            }}
+            onClick={() => setUseCurrentLocation((u) => !u)}
           >
-            Use my current location
+            {useCurrentLocation
+              ? "Using ✓ Your Location"
+              : "Use my current location"}
           </p>
         </div>
 
+        {/* Destination */}
         <input
           type="text"
           value={destination}
-          onChange={handleDestinationChange}
+          onChange={(e) => setDestination(e.target.value)}
           placeholder="Enter destination..."
           className="map-input"
         />
-        <button onClick={handleGetDirections} className="map-button">
-          Get Directions
-        </button>
+        {/* Toggle pins vs circles */}
+        <label className="map-toggle">
+          <input
+            type="checkbox"
+            checked={showCircles}
+            onChange={() => setShowCircles((s) => !s)}
+          />
+          <span>Show Neighborhood Circles</span>
+        </label>
       </div>
 
-      {/* Map */}
       <GoogleMap
+        key={showCircles ? "circles" : "pins"} // <-- This forces a remount on toggle!
         mapContainerClassName="map-container"
         center={center}
         zoom={13}
@@ -189,26 +236,45 @@ const MapComponent = () => {
           draggable: true,
           zoomControl: true,
           scrollwheel: true,
-          disableDoubleClickZoom: false,
           streetViewControl: true,
           fullscreenControl: false,
           mapTypeControl: true,
         }}
       >
-        {/* Crime Markers */}
-        {points.map((crime, idx) => (
-          <Marker
-            key={idx}
-            position={{ lat: crime.lat, lng: crime.lng }}
-            icon={{
-              url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
-                crime.type
-              )}-dot.png`,
-            }}
-            onClick={() => setSelectedCrime(crime)} // 👈 when marker clicked, store crime
-          />
-        ))}
-        {selectedCrime && (
+        {showCircles
+          ? showList.map((n) => (
+              <Circle
+                key={n.name} // Use a unique, stable key!
+                center={n.center}
+                radius={RADIUS}
+                options={{
+                  fillColor:
+                    n.crimeCount < 200
+                      ? "#00FF00"
+                      : n.crimeCount < 600
+                      ? "#FFFF00"
+                      : "#FF0000",
+                  fillOpacity: 0.35,
+                  strokeOpacity: 0.8,
+                  strokeWeight: 2,
+                }}
+                onClick={() => setSelectedNeighborhood(n)}
+              />
+            ))
+          : showList.map((crime, idx) => (
+              <Marker
+                key={idx}
+                position={{ lat: crime.lat, lng: crime.lng }}
+                icon={{
+                  url: `http://maps.google.com/mapfiles/ms/icons/${getMarkerColor(
+                    crime.type
+                  )}-dot.png`,
+                }}
+                onClick={() => setSelectedCrime(crime)}
+              />
+            ))}
+
+        {selectedCrime && !showCircles && (
           <InfoWindow
             position={{ lat: selectedCrime.lat, lng: selectedCrime.lng }}
             onCloseClick={() => setSelectedCrime(null)}
@@ -228,7 +294,31 @@ const MapComponent = () => {
           </InfoWindow>
         )}
 
-        {/* Directions */}
+        {selectedNeighborhood && showCircles && (
+          <InfoWindow
+            position={selectedNeighborhood.center}
+            onCloseClick={() => setSelectedNeighborhood(null)}
+          >
+            <div className="info-window-content">
+              <h3 className="neighborhood-name">{selectedNeighborhood.name}</h3>
+              <p className="crime-total">
+                Total Crimes: <strong>{selectedNeighborhood.crimeCount}</strong>
+              </p>
+              <h4 className="crime-type-title">Crime Types:</h4>
+              <ul className="crime-list">
+                {Object.entries(selectedNeighborhood.crimeTypes).map(
+                  ([t, c], idx) => (
+                    <li key={idx} className="crime-item">
+                      <span className="crime-type">{t}:</span>{" "}
+                      <span className="crime-count">{c}</span>
+                    </li>
+                  )
+                )}
+              </ul>
+            </div>
+          </InfoWindow>
+        )}
+
         {directionsResponse && (
           <DirectionsRenderer directions={directionsResponse} />
         )}
@@ -312,6 +402,4 @@ const MapComponent = () => {
       </div>
     </div>
   );
-};
-
-export default MapComponent;
+}

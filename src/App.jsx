@@ -14,11 +14,11 @@ function App() {
   }
 
   fetchCrimes();
-  
+
 
   return (
     <>
-      <h1>My React Google Map</h1>
+      <h1>The Safety Map</h1>
       <MapComponent />
     </>
   )
