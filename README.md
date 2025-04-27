@@ -3,6 +3,8 @@
 An interactive web application designed to help users navigate cities more safely by avoiding high-crime hotspots.
 Built with **React.js**, **Node.js**, **Google Maps API**, and powered by **Google Gemini AI** for intelligent assistance.
 
+![SafeMap Landing Page](src/assets/images/landingPage.png)
+
 ---
 
 ## Inspiration
