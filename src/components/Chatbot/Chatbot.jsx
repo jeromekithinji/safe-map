@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './Chatbot.scss';
 
-export default function Chatbot({ mapCenter }) {
+export default function Chatbot({ mapCenter,crimeCount}) {
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState([
     { from: 'bot', text: 'Hi! Ask me about safety in Vancouver.' }
@@ -21,7 +21,9 @@ export default function Chatbot({ mapCenter }) {
       body: JSON.stringify({
         question: input,
         lat: mapCenter.lat,
-        lng: mapCenter.lng
+        lng: mapCenter.lng,
+        radiusKm: 1,
+        crimeCount: crimeCount
       })
     });
     const { answer } = await res.json();
