@@ -1,0 +1,49 @@
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  min-width: 80vw;
+  background-color: #2e7d32;
+  color: white;
+  padding: 0px 20px;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  height: 10vh;
+  display: flex;
+  align-items: center;
+
+  &__content {
+    max-width: 1200px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: left;
+    gap: 20px;
+    height: 100%;
+
+    &-texts {   // 🔥 New wrapper around title + subtitle
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+    }
+
+    &-title {
+      font-size: 40px;
+      font-weight: bold;
+      margin: 0;
+      line-height: 1; // 🔥 no weird vertical spacing
+    }
+
+    &-subtitle {
+      font-size: 20px;
+      font-weight: 400;
+      margin: 0;
+      opacity: 0.9;
+      line-height: 1.2;
+    }
+  }
+}
