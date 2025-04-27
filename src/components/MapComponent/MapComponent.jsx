@@ -10,6 +10,7 @@ import {
 } from "@react-google-maps/api";
 import { toLatLon } from "utm";
 import "./MapComponent.scss";
+import Dictionary from "../Dictionary/Dictionary";
 
 const RADIUS = 700; // meters for neighborhood circles
 const MAX_DIST_KM = 1.0; // threshold distance from route
@@ -411,6 +412,7 @@ export default function MapComponent() {
         )}
       </GoogleMap>
       <Chatbot mapCenter={center} />
+      <Dictionary className="map-dictionary"/>
     </div>
   );
 }
