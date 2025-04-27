@@ -392,7 +392,7 @@ export default function MapComponent() {
           <DirectionsRenderer directions={directionsResponse} />
         )}
       </GoogleMap>
-      <div className="map-dictionary">
+      {/* <div className="map-dictionary">
         <h4 className="map-dictionary__title">Map Dictionary</h4>
         <ul className="map-dictionary__list">
           <li>
@@ -468,7 +468,7 @@ export default function MapComponent() {
             Homicide: Causes death of another person
           </li>
         </ul>
-      </div>
+      </div> */}
     </div>
   );
 }
