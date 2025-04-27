@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Chatbot from "./Chatbot/Chatbot";
 import {
   GoogleMap,
   useJsApiLoader,
@@ -26,24 +27,53 @@ function haversine(c1, c2) {
         Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+function summarizeCrime(lat, lng, radiusKm = 1) {
+  // Filter crimes within radius
+  const crimesInRadius = crimes.filter((c) => {
+    if (!c.latitude || !c.longitude) return false;
+    const dist = haversine(lat, lng, c.latitude, c.longitude);
+    return dist <= radiusKm;
+  });
+
+  const total = crimesInRadius.length;
+  if (total === 0) {
+    return `In the past year within ${radiusKm} km of (${lat.toFixed(4)},${lng.toFixed(4)}), no crimes were reported.`;
+  }
+
+  // Count types
+  const typeCounts = {};
+  crimesInRadius.forEach((c) => {
+    typeCounts[c.type] = (typeCounts[c.type] || 0) + 1;
+  });
+
+  // Sort types by count
+  const sortedTypes = Object.entries(typeCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  // Build summary string
+  const typeSummary = sortedTypes
+    .map(([type, count]) => `${type} (${Math.round((count / total) * 100)}%)`)
+    .join(" and ");
+
+  return `In the past year within ${radiusKm} km of (${lat.toFixed(4)},${lng.toFixed(4)}), there have been ${total} crimes, most commonly ${typeSummary}.`;
+}
 
 export default function MapComponent() {
-  // raw crime points
+
   const [points, setPoints] = useState([]);
-  // aggregated neighborhoods
+
   const [neighborhoods, setNeighborhoods] = useState([]);
 
-  // filtered subsets along the route
   const [filteredPoints, setFilteredPoints] = useState([]);
   const [filteredNeighborhoods, setFilteredNeighborhoods] = useState([]);
 
-  // UI & directions
+
   const [destination, setDestination] = useState("");
   const [startLocation, setStartLocation] = useState("");
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [directionsResponse, setDirectionsResponse] = useState(null);
 
-  // marker vs circle toggle
   const [showCircles, setShowCircles] = useState(false);
 
   const [selectedCrime, setSelectedCrime] = useState(null);
@@ -56,7 +86,6 @@ export default function MapComponent() {
 
   const center = { lat: 49.2827, lng: -123.1207 };
 
-  // Fetch crimes + build points & neighborhood aggregates
   useEffect(() => {
     (async () => {
       const res = await fetch("http://localhost:5000/api/crimes");
@@ -77,7 +106,6 @@ export default function MapComponent() {
       setPoints(pts);
       setFilteredPoints(pts);
 
-      // Aggregate neighborhoods
       const agg = {};
       pts.forEach((p) => {
         const nb = p.neighbourhood || "Unknown";
@@ -179,7 +207,6 @@ export default function MapComponent() {
           // setDirectionsResponse({ routes: [safestRoute] }); // 👈 use ONLY the safest one
           const path = bestRoute.overview_path;
 
-          // filter raw points
           const fp = points.filter((p) =>
             path.some(
               (pt) =>
@@ -191,7 +218,6 @@ export default function MapComponent() {
           );
           setFilteredPoints(fp);
 
-          // filter neighborhoods
           const fn = neighborhoods.filter((n) =>
             path.some(
               (pt) =>
@@ -244,14 +270,6 @@ export default function MapComponent() {
   // Decide which list to render
   const showList = showCircles ? filteredNeighborhoods : filteredPoints;
 
-  const handleClear = () => {
-    setDirectionsResponse(null);
-    setDestination("");
-    setStartLocation("");
-    setFilteredPoints(points);
-    setFilteredNeighborhoods(neighborhoods);
-  };
-
   return (
     <div className="map-wrapper">
       <div className="map-controls">
@@ -282,10 +300,10 @@ export default function MapComponent() {
           placeholder="Enter destination..."
           className="map-input"
         />
-        {/* Toggle pins vs circles */}
         <button onClick={handleGetDirections} className="map-button">
-              Get Directions
-            </button>
+          Get Directions
+        </button>
+        {/* Toggle pins vs circles */}
         <label className="map-toggle">
           <input
             type="checkbox"
@@ -392,83 +410,7 @@ export default function MapComponent() {
           <DirectionsRenderer directions={directionsResponse} />
         )}
       </GoogleMap>
-      {/* <div className="map-dictionary">
-        <h4 className="map-dictionary__title">Map Dictionary</h4>
-        <ul className="map-dictionary__list">
-          <li>
-            <strong>Homicide: </strong> A person causes the death of another
-            person, directly or indirectly.
-          </li>
-          <li>
-            <strong>Mischief: </strong> Willful destruction, damage, or
-            defacement of property. Includes public mischief.
-          </li>
-          <li>
-            <strong>Offence Against a Person: </strong> An attack causing harm,
-            possibly involving a weapon.
-          </li>
-          <li>
-            <strong>Other Theft: </strong> Theft of personal items like purses,
-            wallets, bikes, electronics, etc.
-          </li>
-        </ul>
-        <h5 className="map-dictionary__subtitle">Crime Hotspots</h5>
-        <ul className="map-dictionary__list">
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "#00FF00" }}
-            ></span>{" "}
-            Less than 200 crimes (Safe)
-          </li>
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "#FFFF00" }}
-            ></span>{" "}
-            Between 200 and 600 crimes (Moderate)
-          </li>
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "#FF0000" }}
-            ></span>{" "}
-            More than 600 crimes (High Risk)
-          </li>
-        </ul>
-
-        <h5 className="map-dictionary__subtitle">Crime Types</h5>
-        <ul className="map-dictionary__list">
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "orange" }}
-            ></span>{" "}
-            Mischief: Malicious damage or public mischief
-          </li>
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "#6a94fc" }}
-            ></span>{" "}
-            Other Theft: Theft of personal items, bicycles, etc.
-          </li>
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "yellow" }}
-            ></span>{" "}
-            Offence Against a Person: Attack causing harm
-          </li>
-          <li>
-            <span
-              className="color-dot"
-              style={{ backgroundColor: "purple" }}
-            ></span>{" "}
-            Homicide: Causes death of another person
-          </li>
-        </ul>
-      </div> */}
+      <Chatbot mapCenter={center} />
     </div>
   );
 }
