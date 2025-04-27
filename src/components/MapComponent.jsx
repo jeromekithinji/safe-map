@@ -396,19 +396,19 @@ export default function MapComponent() {
         <h4 className="map-dictionary__title">Map Dictionary</h4>
         <ul className="map-dictionary__list">
           <li>
-            <strong>Homicide:</strong> A person causes the death of another
+            <strong>Homicide: </strong> A person causes the death of another
             person, directly or indirectly.
           </li>
           <li>
-            <strong>Mischief:</strong> Willful destruction, damage, or
+            <strong>Mischief: </strong> Willful destruction, damage, or
             defacement of property. Includes public mischief.
           </li>
           <li>
-            <strong>Offence Against a Person:</strong> An attack causing harm,
+            <strong>Offence Against a Person: </strong> An attack causing harm,
             possibly involving a weapon.
           </li>
           <li>
-            <strong>Other Theft:</strong> Theft of personal items like purses,
+            <strong>Other Theft: </strong> Theft of personal items like purses,
             wallets, bikes, electronics, etc.
           </li>
         </ul>
@@ -449,7 +449,7 @@ export default function MapComponent() {
           <li>
             <span
               className="color-dot"
-              style={{ backgroundColor: "blue" }}
+              style={{ backgroundColor: "#6a94fc" }}
             ></span>{" "}
             Other Theft: Theft of personal items, bicycles, etc.
           </li>
